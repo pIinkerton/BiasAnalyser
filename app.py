@@ -1,9 +1,19 @@
+"""
+Bias Score Predictor (Gemini + GUI, Clean Output + YouTube Support)
+--------------------------------------------------------------------
+- Loads transcripts and bias scores
+- Uses Gemini (LLM) with few-shot examples from the dataset
+- Provides a Streamlit GUI for interactive classification
+- Users can paste transcripts directly OR paste a YouTube URL (auto transcript fetch)
+"""
+
 import re
 import pandas as pd
 import random
 import json
 import streamlit as st
 import google.generativeai as genai
+from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
 
 
 # -----------------------------
@@ -24,11 +34,33 @@ def load_dataset(path: str) -> pd.DataFrame:
 
 
 # -----------------------------
-# Step 2. Gemini prediction
+# Step 2. Transcript extractor
 # -----------------------------
-genai.configure(api_key="AIzaSyALeiCm3uhw7ZCEECd_2eY7kOAXoUcLbDQ")  # <- replace with your key
+def extract_transcript(video_url: str) -> str:
+    """Fetch English transcript (manual or auto-generated) for a YouTube video."""
+    try:
+        if "watch?v=" not in video_url:
+            raise ValueError("Invalid YouTube URL. Must be a single video link.")
+
+        video_id = video_url.split("?v=")[1].split("&")[0]
+
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        try:
+            transcript = transcript_list.find_transcript(['en']).fetch()
+        except NoTranscriptFound:
+            transcript = transcript_list.find_generated_transcript(['en']).fetch()
+
+        return " ".join([seg["text"] for seg in transcript])
+
+    except NoTranscriptFound:
+        return "❌ No English transcript found for this video."
+    except Exception as e:
+        return f"❌ Extraction error: {str(e)}"
 
 
+# -----------------------------
+# Step 3. Gemini prediction
+# -----------------------------
 def predict_bias_gemini(transcript: str, df: pd.DataFrame, k: int = 5) -> dict:
     """Use Gemini to classify transcript bias, referencing dataset examples."""
 
@@ -86,19 +118,19 @@ Rules:
 
 
 # -----------------------------
-# Step 3. Streamlit App
+# Step 4. Streamlit App
 # -----------------------------
 def main():
-    st.set_page_config(page_title="Bias Score Analyser", layout="centered")
+    st.set_page_config(page_title="Bias Score Predictor", layout="centered")
 
-    st.title("Bias Score Analyser")
-    st.markdown("Analyse political leaning in transcripts using Google Gemini, grounded on a dataset.")
+    st.title("Bias Score Predictor (Gemini)")
+    st.markdown("Analyze political leaning in transcripts using Google Gemini, grounded on a dataset.")
 
-    # API key input (hidden in sidebar)
+    # Sidebar config
     st.sidebar.header("Configuration")
     api_key = st.sidebar.text_input("Enter your Gemini API Key", type="password")
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
-
+    
     if not api_key:
         url = "https://aistudio.google.com/app/apikey"
         st.warning("Please enter your Gemini API Key in the sidebar. To generate an API key, visit [Google AI Studio](%s)" % url)
@@ -106,7 +138,7 @@ def main():
 
     genai.configure(api_key=api_key)
 
-    # Load dataset once
+    # Load dataset
     try:
         df = load_dataset(dataset_path)
         st.sidebar.success(f"Loaded {len(df)} transcripts")
@@ -114,12 +146,25 @@ def main():
         st.error(f"Error loading dataset: {e}")
         return
 
-    # Input box
-    transcript = st.text_area("Enter Transcript:", height=200)
+    # Input options
+    st.subheader("Input Options")
+    youtube_url = st.text_input("Paste YouTube Link (optional)")
+    transcript = st.text_area("Or paste Transcript manually:", height=200)
 
+    if youtube_url and st.button("Fetch Transcript"):
+        with st.spinner("Fetching transcript..."):
+            transcript_text = extract_transcript(youtube_url)
+            if transcript_text.startswith("❌"):
+                st.error(transcript_text)
+            else:
+                transcript = transcript_text
+                st.success("Transcript extracted successfully!")
+                st.text_area("Extracted Transcript:", transcript, height=200)
+
+    # Classification
     if st.button("Classify"):
         if not transcript.strip():
-            st.warning("Please enter a transcript before classifying.")
+            st.warning("Please enter a transcript or provide a valid YouTube link.")
         else:
             with st.spinner("Classifying with Gemini..."):
                 result = predict_bias_gemini(transcript, df, k=5)
@@ -130,8 +175,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()
-
-
-
