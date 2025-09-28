@@ -37,18 +37,26 @@ def load_dataset(path: str) -> pd.DataFrame:
 # Step 2. Transcript extractor
 # -----------------------------
 def extract_transcript(video_url: str) -> str:
-    """Fetch English transcript (manual or auto-generated) for a YouTube video."""
+    """Fetch English transcript (manual or auto-generated) for a YouTube video (old API style)."""
     try:
-        if "watch?v=" not in video_url:
+        if "watch?v=" in video_url:
+            video_id = video_url.split("watch?v=")[1].split("&")[0]
+        elif "youtu.be/" in video_url:
+            video_id = video_url.split("youtu.be/")[1].split("?")[0]
+        else:
             raise ValueError("Invalid YouTube URL. Must be a single video link.")
 
-        video_id = video_url.split("?v=")[1].split("&")[0]
+        ytt_api = YouTubeTranscriptApi()
+        transcript_list = ytt_api.list(video_id)
 
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # Prefer manual > auto > any English transcript
         try:
-            transcript = transcript_list.find_transcript(['en']).fetch()
+            transcript = transcript_list.find_manually_created_transcript(['en']).fetch()
         except NoTranscriptFound:
-            transcript = transcript_list.find_generated_transcript(['en']).fetch()
+            try:
+                transcript = transcript_list.find_generated_transcript(['en']).fetch()
+            except NoTranscriptFound:
+                transcript = transcript_list.find_transcript(['en']).fetch()
 
         return " ".join([seg["text"] for seg in transcript])
 
@@ -123,8 +131,8 @@ Rules:
 def main():
     st.set_page_config(page_title="Bias Score Predictor", layout="centered")
 
-    st.title("Bias Score Predictor (Gemini)")
-    st.markdown("Analyze political leaning in transcripts using Google Gemini, grounded on a dataset.")
+    st.title("Bias Score Predictor")
+    st.markdown("Analyse political leaning in transcripts using Google Gemini, grounded on a dataset.")
 
     # Sidebar config
     st.sidebar.header("Configuration")
@@ -176,3 +184,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
