@@ -1,5 +1,5 @@
 """
-Bias Score Predictor (Gemini + GUI, Clean Output + YouTube Support)
+Bias Analyser (Gemini + GUI, Clean Output + YouTube Support)
 --------------------------------------------------------------------
 - Loads transcripts and bias scores
 - Uses Gemini (LLM) with few-shot examples from the dataset
@@ -130,9 +130,9 @@ Rules:
 # Step 4. Streamlit App
 # -----------------------------
 def main():
-    st.set_page_config(page_title="Bias Score Predictor", layout="centered")
+    st.set_page_config(page_title="Bias Analyser", layout="centered")
 
-    st.title("Bias Score Predictor")
+    st.title("Bias Analyser")
     st.markdown("Analyse political leaning in transcripts using Google Gemini, grounded on a dataset.")
 
     # Sidebar config
@@ -199,6 +199,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
