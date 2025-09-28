@@ -158,7 +158,12 @@ def main():
     # Input options
     st.subheader("Input Options")
     youtube_url = st.text_input("Paste YouTube Link (optional)")
-    transcript = st.text_area("Or paste Transcript manually:", height=200)
+
+    # Main transcript box (bound to session_state)
+    if "transcript" not in st.session_state:
+        st.session_state.transcript = ""
+
+    st.text_area("Transcript:", key="transcript", height=200)
 
     if youtube_url and st.button("Fetch Transcript"):
         with st.spinner("Fetching transcript..."):
@@ -166,13 +171,13 @@ def main():
             if transcript_text.startswith("❌"):
                 st.error(transcript_text)
             else:
-                transcript = transcript_text
+                st.session_state.transcript = transcript_text
                 st.success("Transcript extracted successfully!")
-                st.text_area("Extracted Transcript:", transcript, height=200)
 
     # Classification
     if st.button("Classify"):
-        if not transcript.strip():
+        transcript = st.session_state.transcript.strip()
+        if not transcript:
             st.warning("Please enter a transcript or provide a valid YouTube link.")
         else:
             with st.spinner("Classifying with Gemini..."):
@@ -185,5 +190,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
