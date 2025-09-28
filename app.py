@@ -89,10 +89,10 @@ Rules:
 # Step 3. Streamlit App
 # -----------------------------
 def main():
-    st.set_page_config(page_title="Bias Score Predictor", layout="centered")
+    st.set_page_config(page_title="Bias Score Analyser", layout="centered")
 
-    st.title("🗞️ Bias Score Predictor (Gemini)")
-    st.markdown("Analyze political leaning in transcripts using Google Gemini, grounded on a dataset.")
+    st.title("Bias Score Analyser")
+    st.markdown("Analyse political leaning in transcripts using Google Gemini, grounded on a dataset.")
 
     # API key input (hidden in sidebar)
     st.sidebar.header("Configuration")
@@ -100,7 +100,8 @@ def main():
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
 
     if not api_key:
-        st.warning("Please enter your Gemini API Key in the sidebar.")
+        url = "https://aistudio.google.com/app/apikey"
+        st.warning("Please enter your Gemini API Key in the sidebar. To generate an API key, visit [Google AI Studio](%s)" % url)
         return
 
     genai.configure(api_key=api_key)
@@ -131,5 +132,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
