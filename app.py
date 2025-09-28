@@ -7,6 +7,8 @@ Bias Score Predictor (Gemini + GUI, Clean Output)
 4. Outputs clean results: Bias + Reason
 """
 
+pip install streamlit google-generativeai pandas
+
 import re
 import pandas as pd
 import random
@@ -140,4 +142,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
