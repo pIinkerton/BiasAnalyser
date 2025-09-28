@@ -1,20 +1,9 @@
-"""
-Bias Score Predictor (Gemini + GUI, Clean Output)
---------------------------------------------------------
-1. Loads transcripts and bias scores
-2. Uses Gemini (LLM) with few-shot examples from the dataset
-3. Provides a Tkinter GUI for interactive classification
-4. Outputs clean results: Bias + Reason
-"""
-
 import re
 import pandas as pd
 import random
 import json
 import streamlit as st
 import google.generativeai as genai
-import tkinter as tk
-from tkinter import scrolledtext
 
 
 # -----------------------------
@@ -142,4 +131,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
