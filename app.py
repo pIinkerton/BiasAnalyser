@@ -49,7 +49,7 @@ def extract_transcript(video_url: str) -> str:
         ytt_api = YouTubeTranscriptApi()
         transcript_list = ytt_api.list(video_id)
 
-        # Prefer manual > auto > any English transcript
+        # Prefer manual > auto > fallback English transcript
         try:
             transcript = transcript_list.find_manually_created_transcript(['en']).fetch()
         except NoTranscriptFound:
@@ -58,7 +58,8 @@ def extract_transcript(video_url: str) -> str:
             except NoTranscriptFound:
                 transcript = transcript_list.find_transcript(['en']).fetch()
 
-        return " ".join([seg["text"] for seg in transcript])
+        # Each segment is an object, not a dict → use .text
+        return " ".join([seg.text for seg in transcript])
 
     except NoTranscriptFound:
         return "❌ No English transcript found for this video."
@@ -184,4 +185,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
