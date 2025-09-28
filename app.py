@@ -142,7 +142,10 @@ def main():
     
     if not api_key:
         url = "https://aistudio.google.com/app/apikey"
-        st.warning("Please enter your Gemini API Key in the sidebar. To generate an API key, visit [Google AI Studio](%s)" % url)
+        st.warning(
+            "Please enter your Gemini API Key in the sidebar. "
+            f"To generate an API key, visit [Google AI Studio]({url})"
+        )
         return
 
     genai.configure(api_key=api_key)
@@ -163,7 +166,10 @@ def main():
     if "transcript" not in st.session_state:
         st.session_state["transcript"] = ""
 
-    # Callback to fetch transcript and fill box
+    # Transcript input box (separate key to avoid collisions)
+    st.text_area("Transcript:", key="transcript_input", height=200)
+
+    # Callback to fetch transcript and fill our own state
     def fetch_and_fill():
         if youtube_url:
             transcript_text = extract_transcript(youtube_url)
@@ -173,15 +179,17 @@ def main():
                 st.session_state["transcript"] = transcript_text
                 st.success("Transcript extracted successfully!")
 
-    # Main transcript box
-    st.text_area("Transcript:", key="transcript", height=200)
-
     # Fetch button triggers callback
     st.button("Fetch Transcript", on_click=fetch_and_fill)
 
     # Classification
     if st.button("Classify"):
-        transcript = st.session_state["transcript"].strip()
+        # Use fetched transcript if available, else user input
+        transcript = (
+            st.session_state["transcript"].strip()
+            or st.session_state["transcript_input"].strip()
+        )
+
         if not transcript:
             st.warning("Please enter a transcript or provide a valid YouTube link.")
         else:
@@ -195,6 +203,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
