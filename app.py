@@ -14,6 +14,7 @@ import json
 import streamlit as st
 import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
+from youtube_transcript_api.proxies import WebshareProxyConfig
 
 
 # -----------------------------
@@ -46,7 +47,14 @@ def extract_transcript(video_url: str) -> str:
         else:
             raise ValueError("Invalid YouTube URL. Must be a single video link.")
 
-        ytt_api = YouTubeTranscriptApi()
+        # Configure youtube-transcript-api with this proxy
+        ytt_api = YouTubeTranscriptApi(
+	    proxy_config=WebshareProxyConfig(
+        	proxy_username="bwthfved-rotate",
+        	proxy_password="5ackm8o64jav",
+	    )
+	)
+
         transcript_list = ytt_api.list(video_id)
 
         # Prefer manual > auto > fallback English transcript
@@ -134,10 +142,27 @@ def main():
 
     st.title("Bias Analyser")
     st.markdown("Analyse political leaning in transcripts using Google Gemini, grounded on a dataset.")
+    st.markdown("*Please note that this is an AI tool, and can be innaccurate.*")
 
     # Sidebar config
     st.sidebar.header("Configuration")
-    api_key = st.sidebar.text_input("Enter your Gemini API Key", type="password")
+
+    # Cache API key in session_state
+    if "gemini_api_key" not in st.session_state:
+        st.session_state["gemini_api_key"] = ""
+
+    api_key_input = st.sidebar.text_input(
+	"Enter your Gemini API Key",
+	type="password",
+	value=st.session_state["gemini_api_key"],  # Pre-fill if cached
+    )
+
+    # Update stored key if user enters a new one
+    if api_key_input and api_key_input != st.session_state["gemini_api_key"]:
+    	st.session_state["gemini_api_key"] = api_key_input
+
+    api_key = st.session_state["gemini_api_key"]
+
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
     
     if not api_key:
@@ -199,11 +224,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
