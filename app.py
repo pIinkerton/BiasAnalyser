@@ -50,8 +50,8 @@ def extract_transcript(video_url: str) -> str:
         # Configure youtube-transcript-api with this proxy
         ytt_api = YouTubeTranscriptApi(
 	    proxy_config=WebshareProxyConfig(
-        	proxy_username="bwthfved-rotate",
-        	proxy_password="5ackm8o64jav",
+        	proxy_username="ohzwguae-rotate",
+        	proxy_password="mkpe3emhqu46",
 	    )
 	)
 
@@ -224,4 +224,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
