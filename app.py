@@ -11,11 +11,11 @@ import re
 import pandas as pd
 import random
 import json
-import subprocess
 import streamlit as st
 import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
 from youtube_transcript_api.proxies import WebshareProxyConfig
+import yt_dlp
 
 
 # -----------------------------
@@ -65,35 +65,47 @@ def extract_transcript(video_url: str) -> str:
         # Each segment is an object, not a dict → use .text
         return " ".join([seg.text for seg in transcript])
 
-    except Exception as e:
+    except Exception:
         # --- Fallback to yt-dlp ---
         try:
             print("⚠️ Falling back to yt-dlp...")
 
-            # Run yt-dlp command to fetch auto subtitles (English)
-            result = subprocess.run(
-                [
-                    "yt-dlp",
-                    "--skip-download",
-                    "--write-auto-subs",
-                    "--sub-lang", "en",
-                    "--sub-format", "json3",
-                    "-o", "-",  # output to stdout
-                    video_url
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            ydl_opts = {
+                "skip_download": True,
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": ["en"],
+                "subtitlesformat": "json3",
+                "quiet": True,
+                "simulate": True,
+                "forcejson": True
+            }
 
-            if result.returncode != 0:
-                return f"❌ yt-dlp error: {result.stderr}"
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(video_url, download=False)
 
-            # Parse JSON3 format
-            data = json.loads(result.stdout)
-            if "events" not in data:
+            # Captions are stored in info['subtitles'] or info['automatic_captions']
+            captions = info.get("subtitles", {}).get("en") or info.get("automatic_captions", {}).get("en")
+
+            if not captions:
                 return "❌ No transcript found (yt-dlp)."
 
+            # Prefer JSON3 format
+            json3_url = None
+            for c in captions:
+                if c["ext"] == "json3":
+                    json3_url = c["url"]
+                    break
+
+            if not json3_url:
+                return "❌ English transcript not available in JSON3 format (yt-dlp)."
+
+            import requests
+            resp = requests.get(json3_url)
+            if resp.status_code != 200:
+                return f"❌ yt-dlp transcript fetch failed (HTTP {resp.status_code})"
+
+            data = resp.json()
             transcript_text = " ".join(
                 [ev["segs"][0]["utf8"] for ev in data["events"] if "segs" in ev]
             )
@@ -236,6 +248,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
