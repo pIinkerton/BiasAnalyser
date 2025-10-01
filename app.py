@@ -48,12 +48,7 @@ def extract_transcript(video_url: str) -> str:
             raise ValueError("Invalid YouTube URL. Must be a single video link.")
 
         # Configure youtube-transcript-api with this proxy
-        ytt_api = YouTubeTranscriptApi(
-	    proxy_config=WebshareProxyConfig(
-        	proxy_username="ohzwguae-rotate",
-        	proxy_password="mkpe3emhqu46",
-	    )
-	)
+        ytt_api = YouTubeTranscriptApi()
 
         transcript_list = ytt_api.list(video_id)
 
@@ -208,6 +203,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
