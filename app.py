@@ -11,6 +11,7 @@ import re
 import pandas as pd
 import random
 import json
+import subprocess
 import streamlit as st
 import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
@@ -64,10 +65,42 @@ def extract_transcript(video_url: str) -> str:
         # Each segment is an object, not a dict → use .text
         return " ".join([seg.text for seg in transcript])
 
-    except NoTranscriptFound:
-        return "❌ No English transcript found for this video."
     except Exception as e:
-        return f"❌ Extraction error: {str(e)}"
+        # --- Fallback to yt-dlp ---
+        try:
+            print("⚠️ Falling back to yt-dlp...")
+
+            # Run yt-dlp command to fetch auto subtitles (English)
+            result = subprocess.run(
+                [
+                    "yt-dlp",
+                    "--skip-download",
+                    "--write-auto-subs",
+                    "--sub-lang", "en",
+                    "--sub-format", "json3",
+                    "-o", "-",  # output to stdout
+                    video_url
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            if result.returncode != 0:
+                return f"❌ yt-dlp error: {result.stderr}"
+
+            # Parse JSON3 format
+            data = json.loads(result.stdout)
+            if "events" not in data:
+                return "❌ No transcript found (yt-dlp)."
+
+            transcript_text = " ".join(
+                [ev["segs"][0]["utf8"] for ev in data["events"] if "segs" in ev]
+            )
+            return transcript_text
+
+        except Exception as e2:
+            return f"❌ Extraction failed (both methods): {str(e2)}"
 
 
 # -----------------------------
@@ -203,6 +236,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
