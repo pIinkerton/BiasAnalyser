@@ -146,22 +146,7 @@ def main():
 
     # Sidebar config
     st.sidebar.header("Configuration")
-
-    # Cache API key in session_state
-    if "gemini_api_key" not in st.session_state:
-        st.session_state["gemini_api_key"] = ""
-
-    api_key_input = st.sidebar.text_input(
-	"Enter your Gemini API Key",
-	type="password",
-	value=st.session_state["gemini_api_key"],  # Pre-fill if cached
-    )
-
-    # Update stored key if user enters a new one
-    if api_key_input and api_key_input != st.session_state["gemini_api_key"]:
-    	st.session_state["gemini_api_key"] = api_key_input
-
-    api_key = st.session_state["gemini_api_key"]
+	api_key = st.sidebar.text_input("Enter your Gemini API Key", type="password")
 
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
     
@@ -224,5 +209,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
