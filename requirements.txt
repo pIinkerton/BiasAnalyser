@@ -3,3 +3,4 @@ google-generativeai
 pandas
 youtube-transcript-api
 yt-dlp
+requests
