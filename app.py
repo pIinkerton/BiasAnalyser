@@ -105,7 +105,7 @@ def extract_transcript(video_url: str) -> str:
             if resp.status_code != 200:
                 return f"❌ yt-dlp transcript fetch failed (HTTP {resp.status_code})"
 
-           data = resp.json()
+            data = resp.json()
 
             # ✅ Improved: join words inside each event, remove stage directions
             lines = []
@@ -256,6 +256,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
