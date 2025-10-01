@@ -105,10 +105,18 @@ def extract_transcript(video_url: str) -> str:
             if resp.status_code != 200:
                 return f"❌ yt-dlp transcript fetch failed (HTTP {resp.status_code})"
 
-            data = resp.json()
-            transcript_text = " ".join(
-                [ev["segs"][0]["utf8"] for ev in data["events"] if "segs" in ev]
-            )
+           data = resp.json()
+
+            # ✅ Improved: join words inside each event, remove stage directions
+            lines = []
+            for ev in data.get("events", []):
+                if "segs" in ev:
+                    chunk = " ".join(seg.get("utf8", "") for seg in ev["segs"])
+                    chunk = chunk.strip()
+                    if chunk and not (chunk.startswith("[") and chunk.endswith("]")):
+                        lines.append(chunk)
+
+            transcript_text = " ".join(lines)
             return transcript_text
 
         except Exception as e2:
@@ -248,6 +256,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
