@@ -12,7 +12,7 @@ import pandas as pd
 import random
 import json
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
 from youtube_transcript_api.proxies import WebshareProxyConfig
 import yt_dlp
@@ -129,6 +129,8 @@ def extract_transcript(video_url: str) -> str:
 def predict_bias_gemini(transcript: str, df: pd.DataFrame, k: int = 5) -> dict:
     """Use Gemini to classify transcript bias, referencing dataset examples."""
 
+    client = genai.Client(api_key=st.session_state["api_key"])
+    
     def score_to_class(score):
         mapping = {
             0.0: "Left",
@@ -165,11 +167,6 @@ Rules:
 - Format your response as: {{"class": "...", "score": ..., "reason": "..."}}.
 """
 
-    model = genai.GenerativeModel("gemini-3-flash-preview")
-    response = model.generate_content(prompt)
-
-    text = response.text.strip()
-
     # Strip out accidental ```json fences
     if text.startswith("```"):
         text = text.strip("` \n")
@@ -177,9 +174,15 @@ Rules:
             text = text[4:].strip()
 
     try:
-        return json.loads(text)
-    except Exception:
-        return {"class": "Unknown", "score": None, "reason": text}
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
+
+        return json.loads(response.text)
+
+    except Exception as e:
+        return {"class": "Error", "score": None, "reason": str(e)}
 
 
 # -----------------------------
