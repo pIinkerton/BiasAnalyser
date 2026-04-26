@@ -1,25 +1,14 @@
-"""
-Bias Analyser (Gemini + GUI, Clean Output + YouTube Support)
---------------------------------------------------------------------
-- Loads transcripts and bias scores
-- Uses Gemini (LLM) with few-shot examples from the dataset
-- Provides a Streamlit GUI for interactive classification
-- Users can paste transcripts directly OR paste a YouTube URL (auto transcript fetch)
-"""
-
 import re
 import pandas as pd
-import random
 import json
 import streamlit as st
 from google import genai
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
-from youtube_transcript_api.proxies import WebshareProxyConfig
 import yt_dlp
 
 
 # -----------------------------
-# Step 1. Load and parse dataset
+# Step 1. Load dataset
 # -----------------------------
 def load_dataset(path: str) -> pd.DataFrame:
     with open(path, "r", encoding="utf-8") as f:
@@ -39,37 +28,27 @@ def load_dataset(path: str) -> pd.DataFrame:
 # Step 2. Transcript extractor
 # -----------------------------
 def extract_transcript(video_url: str) -> str:
-    """Fetch English transcript (manual or auto-generated) for a YouTube video (old API style)."""
     try:
         if "watch?v=" in video_url:
             video_id = video_url.split("watch?v=")[1].split("&")[0]
         elif "youtu.be/" in video_url:
             video_id = video_url.split("youtu.be/")[1].split("?")[0]
         else:
-            raise ValueError("Invalid YouTube URL. Must be a single video link.")
-            
-        # Configure youtube-transcript-api with this proxy
-        ytt_api = YouTubeTranscriptApi()
+            raise ValueError("Invalid YouTube URL.")
 
+        ytt_api = YouTubeTranscriptApi()
         transcript_list = ytt_api.list(video_id)
 
-        # Prefer manual > auto > fallback English transcript
         try:
             transcript = transcript_list.find_manually_created_transcript(['en']).fetch()
         except NoTranscriptFound:
-            try:
-                transcript = transcript_list.find_generated_transcript(['en']).fetch()
-            except NoTranscriptFound:
-                transcript = transcript_list.find_transcript(['en']).fetch()
+            transcript = transcript_list.find_generated_transcript(['en']).fetch()
 
-        # Each segment is an object, not a dict → use .text
         return " ".join([seg.text for seg in transcript])
 
     except Exception:
-        # --- Fallback to yt-dlp ---
+        # fallback yt-dlp
         try:
-            print("⚠️ Falling back to yt-dlp...")
-
             ydl_opts = {
                 "skip_download": True,
                 "writesubtitles": True,
@@ -77,74 +56,51 @@ def extract_transcript(video_url: str) -> str:
                 "subtitleslangs": ["en"],
                 "subtitlesformat": "json3",
                 "quiet": True,
-                "simulate": True,
-                "forcejson": True
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(video_url, download=False)
 
-            # Captions are stored in info['subtitles'] or info['automatic_captions']
             captions = info.get("subtitles", {}).get("en") or info.get("automatic_captions", {}).get("en")
 
             if not captions:
-                return "❌ No transcript found (yt-dlp)."
-
-            # Prefer JSON3 format
-            json3_url = None
-            for c in captions:
-                if c["ext"] == "json3":
-                    json3_url = c["url"]
-                    break
-
-            if not json3_url:
-                return "❌ English transcript not available in JSON3 format (yt-dlp)."
+                return "❌ No transcript found."
 
             import requests
-            resp = requests.get(json3_url)
-            if resp.status_code != 200:
-                return f"❌ yt-dlp transcript fetch failed (HTTP {resp.status_code})"
+            for c in captions:
+                if c["ext"] == "json3":
+                    data = requests.get(c["url"]).json()
+                    lines = []
+                    for ev in data.get("events", []):
+                        if "segs" in ev:
+                            chunk = " ".join(seg.get("utf8", "") for seg in ev["segs"])
+                            if chunk.strip():
+                                lines.append(chunk.strip())
+                    return " ".join(lines)
 
-            data = resp.json()
+            return "❌ Transcript format not supported."
 
-            # ✅ Improved: join words inside each event, remove stage directions
-            lines = []
-            for ev in data.get("events", []):
-                if "segs" in ev:
-                    chunk = " ".join(seg.get("utf8", "") for seg in ev["segs"])
-                    chunk = chunk.strip()
-                    if chunk and not (chunk.startswith("[") and chunk.endswith("]")):
-                        lines.append(chunk)
-
-            transcript_text = " ".join(lines)
-            return transcript_text
-
-        except Exception as e2:
-            return f"❌ Extraction failed (both methods): {str(e2)}"
+        except Exception as e:
+            return f"❌ Extraction failed: {str(e)}"
 
 
 # -----------------------------
-# Step 3. Gemini prediction
+# Step 3. Gemini prediction (NEW SDK)
 # -----------------------------
-def predict_bias_gemini(transcript: str, df: pd.DataFrame, k: int = 5) -> dict:
-    """Use Gemini to classify transcript bias, referencing dataset examples."""
-
-    client = genai.Client(api_key=st.session_state["api_key"])
-    
+def predict_bias_gemini(client, transcript: str, df: pd.DataFrame, k: int = 3) -> dict:
     def score_to_class(score):
-        mapping = {
+        return {
             0.0: "Left",
             0.25: "Left-leaning",
             0.5: "Neutral",
             0.75: "Right-leaning",
             1.0: "Right",
-        }
-        return mapping.get(score, "Unknown")
+        }.get(score, "Unknown")
 
-    # Sample k examples for grounding
     examples = df.sample(min(k, len(df)), random_state=42)
+
     example_texts = "\n".join(
-        f'Example: "{row.transcript}" → Class: {score_to_class(row.bias_score)}, Score: {row.bias_score}'
+        f'Example: "{row.transcript[:300]}" → Class: {score_to_class(row.bias_score)}'
         for _, row in examples.iterrows()
     )
 
@@ -167,19 +123,14 @@ Rules:
 - Format your response as: {{"class": "...", "score": ..., "reason": "..."}}.
 """
 
-    # Strip out accidental ```json fences
-    if text.startswith("```"):
-        text = text.strip("` \n")
-        if text.lower().startswith("json"):
-            text = text[4:].strip()
-
     try:
         response = client.models.generate_content(
             model="gemini-3-flash-preview",
             contents=prompt
         )
 
-        return json.loads(response.text)
+        text = response.text.strip()
+        return json.loads(text)
 
     except Exception as e:
         return {"class": "Error", "score": None, "reason": str(e)}
@@ -189,92 +140,70 @@ Rules:
 # Step 4. Streamlit App
 # -----------------------------
 def main():
-    st.set_page_config(page_title="Bias Analyser", layout="centered")
+    st.set_page_config(page_title="Bias Analyser")
 
     st.title("Bias Analyser")
-    st.markdown("Analyse political leaning in transcripts using Google Gemini, grounded on a dataset.")
-    st.markdown("*Please note that this is an AI tool, and can be innaccurate.*")
+    st.markdown("Analyse political leaning using Gemini.")
 
-    # Sidebar config
+    # Sidebar
     st.sidebar.header("Configuration")
+
     api_key = st.sidebar.text_input(
         "Enter your Gemini API Key",
-        value="AIzaSyALeiCm3uhw7ZCEECd_2eY7kOAXoUcLbDQ",
+        value="AIzaSyChzyEsXCeWFLX8C_FvzjmZ5GeX8vOhiYU",  # you can pre-fill here if needed
         type="password"
     )
+
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
-    
+
     if not api_key:
-        url = "https://aistudio.google.com/app/apikey"
-        st.warning(
-            "Please enter your Gemini API Key in the sidebar. "
-            f"To generate an API key, visit [Google AI Studio]({url})"
-        )
+        st.warning("Please enter your API key.")
         return
 
-    genai.configure(api_key=api_key)
+    # ✅ NEW SDK client
+    client = genai.Client(api_key=api_key)
 
     # Load dataset
     try:
         df = load_dataset(dataset_path)
         st.sidebar.success(f"Loaded {len(df)} transcripts")
     except Exception as e:
-        st.error(f"Error loading dataset: {e}")
+        st.error(f"Dataset error: {e}")
         return
 
-    # Input options
-    st.subheader("Input Options")
-    youtube_url = st.text_input("Paste YouTube Link (optional)")
+    # Input
+    youtube_url = st.text_input("YouTube URL (optional)")
 
-    # Ensure transcript input state exists
     if "transcript_input" not in st.session_state:
         st.session_state["transcript_input"] = ""
 
-    # Transcript input box (user can edit, gets pre-filled)
-    st.text_area("Transcript:", key="transcript_input", height=200)
+    st.text_area("Transcript", key="transcript_input", height=200)
 
-    # Callback to fetch transcript and pre-fill text area
-    def fetch_and_fill():
+    # Fetch transcript
+    if st.button("Fetch Transcript"):
         if youtube_url:
-            transcript_text = extract_transcript(youtube_url)
-            if transcript_text.startswith("❌"):
-                st.error(transcript_text)
+            transcript = extract_transcript(youtube_url)
+            if transcript.startswith("❌"):
+                st.error(transcript)
             else:
-                st.session_state["transcript_input"] = transcript_text
-                st.success("Transcript extracted successfully!")
+                st.session_state["transcript_input"] = transcript
+                st.success("Transcript loaded")
 
-    # Fetch button triggers callback
-    st.button("Fetch Transcript", on_click=fetch_and_fill)
-
-    # Classification
+    # Classify
     if st.button("Classify"):
         transcript = st.session_state["transcript_input"].strip()
 
         if not transcript:
-            st.warning("Please enter a transcript or provide a valid YouTube link.")
-        else:
-            with st.spinner("Classifying with Gemini..."):
-                result = predict_bias_gemini(transcript, df, k=5)
+            st.warning("Enter transcript first.")
+            return
 
-            st.subheader("Result")
-            st.write(f"**Bias:** {result.get('class')}")
-            st.write(f"**Reason:** {result.get('reason')}")
+        with st.spinner("Analysing..."):
+            result = predict_bias_gemini(client, transcript, df)
+
+        st.subheader("Result")
+        st.write(f"**Bias:** {result.get('class')}")
+        st.write(f"**Reason:** {result.get('reason')}")
 
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
