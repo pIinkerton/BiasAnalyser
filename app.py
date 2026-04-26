@@ -165,7 +165,7 @@ Rules:
 - Format your response as: {{"class": "...", "score": ..., "reason": "..."}}.
 """
 
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-3-flash-preview")
     response = model.generate_content(prompt)
 
     text = response.text.strip()
