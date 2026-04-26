@@ -194,11 +194,7 @@ def main():
 
     # Sidebar config
     st.sidebar.header("Configuration")
-    api_key = st.sidebar.text_input(
-        "Enter your Gemini API Key",
-        value="AIzaSyALeiCm3uhw7ZCEECd_2eY7kOAXoUcLbDQ",
-        type="password"
-    )
+    api_key = st.sidebar.text_input("Enter your Gemini API Key", type="password")
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
     
     if not api_key:
