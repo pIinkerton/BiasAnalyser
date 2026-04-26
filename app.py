@@ -161,7 +161,7 @@ Rules:
 - If something is unclear, state "Not specified".
 - In the "reason", quote specific phrases from the transcript that support your decision.
 - Output valid JSON only, no Markdown, no code fences, no extra text.
-- Do not repeat the transcript in your output.
+- Provide a highly reputable source to back up your findings, if relevant or available.
 - Format your response as: {{"class": "...", "score": ..., "reason": "..."}}.
 """
 
@@ -194,7 +194,11 @@ def main():
 
     # Sidebar config
     st.sidebar.header("Configuration")
-    api_key = st.sidebar.text_input("Enter your Gemini API Key", type="password")
+    api_key = st.sidebar.text_input(
+        "Enter your Gemini API Key",
+        value="AIzaSyALeiCm3uhw7ZCEECd_2eY7kOAXoUcLbDQ",
+        type="password"
+    )
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
     
     if not api_key:
