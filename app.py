@@ -165,7 +165,7 @@ Rules:
 - Format your response as: {{"class": "...", "score": ..., "reason": "..."}}.
 """
 
-    model = genai.GenerativeModel("gemini-2.5-pro")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
 
     text = response.text.strip()
@@ -194,7 +194,11 @@ def main():
 
     # Sidebar config
     st.sidebar.header("Configuration")
-    api_key = st.sidebar.text_input("Enter your Gemini API Key", type="password")
+    api_key = st.sidebar.text_input(
+        "Enter your Gemini API Key",
+        value="AIzaSyALeiCm3uhw7ZCEECd_2eY7kOAXoUcLbDQ",
+        type="password"
+    )
     dataset_path = st.sidebar.text_input("Dataset File", "transcript output.txt")
     
     if not api_key:
