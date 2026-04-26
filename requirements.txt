@@ -1,5 +1,5 @@
 streamlit
-google-generativeai
+google
 pandas
 youtube-transcript-api
 yt-dlp
