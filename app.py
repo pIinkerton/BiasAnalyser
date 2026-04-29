@@ -172,22 +172,29 @@ def main():
         return
 
     # Input
+    st.subheader("Input Options")
+
     youtube_url = st.text_input("YouTube URL (optional)")
 
+    # ✅ Initialize session state BEFORE widget
     if "transcript_input" not in st.session_state:
-        st.session_state["transcript_input"] = ""
+        st.session_state.transcript_input = ""
 
-    st.text_area("Transcript", key="transcript_input", height=200)
-
-    # Fetch transcript
-    if st.button("Fetch Transcript"):
+    # ✅ Callback function (safe state update)
+    def fetch_and_fill():
         if youtube_url:
             transcript = extract_transcript(youtube_url)
             if transcript.startswith("❌"):
                 st.error(transcript)
             else:
-                st.session_state["transcript_input"] = transcript
+                st.session_state.transcript_input = transcript
                 st.success("Transcript loaded")
+
+    # ✅ Button uses callback
+    st.button("Fetch Transcript", on_click=fetch_and_fill)
+
+    # ✅ Widget reads from session state
+    st.text_area("Transcript", key="transcript_input", height=200)
 
     # Classify
     if st.button("Classify"):
