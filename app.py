@@ -150,7 +150,7 @@ def main():
 
     api_key = st.sidebar.text_input(
         "Enter your Gemini API Key",
-        value="AIzaSyChzyEsXCeWFLX8C_FvzjmZ5GeX8vOhiYU",  # you can pre-fill here if needed
+        value="AIzaSyDgAv-1U0u1rUalWaZLAOejjBEWg7WLy88",  # you can pre-fill here if needed
         type="password"
     )
 
