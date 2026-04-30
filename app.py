@@ -7,9 +7,11 @@ from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
 import yt_dlp
 
 
-# -----------------------------
-# Step 1. Load dataset
-# -----------------------------
+
+
+
+# Load dataset
+
 def load_dataset(path: str) -> pd.DataFrame:
     with open(path, "r", encoding="utf-8") as f:
         raw_text = f.read()
@@ -24,9 +26,11 @@ def load_dataset(path: str) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-# -----------------------------
-# Step 2. Transcript extractor
-# -----------------------------
+
+
+
+# Transcript extractor
+
 def extract_transcript(video_url: str) -> str:
     try:
         if "watch?v=" in video_url:
@@ -47,7 +51,6 @@ def extract_transcript(video_url: str) -> str:
         return " ".join([seg.text for seg in transcript])
 
     except Exception:
-        # fallback yt-dlp
         try:
             ydl_opts = {
                 "skip_download": True,
@@ -84,9 +87,11 @@ def extract_transcript(video_url: str) -> str:
             return f"❌ Extraction failed: {str(e)}"
 
 
-# -----------------------------
-# Step 3. Gemini prediction (NEW SDK)
-# -----------------------------
+
+
+
+# Gemini
+
 def predict_bias_gemini(client, transcript: str, df: pd.DataFrame, k: int = 3) -> dict:
     def score_to_class(score):
         return {
@@ -136,21 +141,22 @@ Rules:
         return {"class": "Error", "score": None, "reason": str(e)}
 
 
-# -----------------------------
-# Step 4. Streamlit App
-# -----------------------------
+
+
+
+# Streamlit
+
 def main():
     st.set_page_config(page_title="Bias Analyser")
 
     st.title("Bias Analyser")
     st.markdown("Analyse political leaning using Gemini.")
 
-    # Sidebar
     st.sidebar.header("Configuration")
 
     api_key = st.sidebar.text_input(
         "Enter your Gemini API Key",
-        value="AIzaSyDgAv-1U0u1rUalWaZLAOejjBEWg7WLy88",  # you can pre-fill here if needed
+        value=st.secrets.get("GEMINI_API_KEY", ""),
         type="password"
     )
 
@@ -160,10 +166,8 @@ def main():
         st.warning("Please enter your API key.")
         return
 
-    # ✅ NEW SDK client
     client = genai.Client(api_key=api_key)
 
-    # Load dataset
     try:
         df = load_dataset(dataset_path)
         st.sidebar.success(f"Loaded {len(df)} transcripts")
@@ -171,16 +175,13 @@ def main():
         st.error(f"Dataset error: {e}")
         return
 
-    # Input
     st.subheader("Input Options")
 
     youtube_url = st.text_input("YouTube URL (optional)")
 
-    # ✅ Initialize session state BEFORE widget
     if "transcript_input" not in st.session_state:
         st.session_state.transcript_input = ""
 
-    # ✅ Callback function (safe state update)
     def fetch_and_fill():
         if youtube_url:
             transcript = extract_transcript(youtube_url)
@@ -190,13 +191,10 @@ def main():
                 st.session_state.transcript_input = transcript
                 st.success("Transcript loaded")
 
-    # ✅ Button uses callback
     st.button("Fetch Transcript", on_click=fetch_and_fill)
 
-    # ✅ Widget reads from session state
     st.text_area("Transcript", key="transcript_input", height=200)
 
-    # Classify
     if st.button("Classify"):
         transcript = st.session_state["transcript_input"].strip()
 
